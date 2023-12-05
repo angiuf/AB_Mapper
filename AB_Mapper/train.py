@@ -27,7 +27,7 @@ from torch.autograd import Variable
 from torch import Tensor
 from read_plot import R_P
 from model1 import Actor
-from misc import soft_update, hard_update
+from utils.misc import soft_update, hard_update
 
 
 actions = ['N','S','E','W','NW','WS','SE','EN','.']

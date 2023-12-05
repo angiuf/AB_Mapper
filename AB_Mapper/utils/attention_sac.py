@@ -3,9 +3,9 @@ import torch.nn.functional as F
 from torch.optim import Adam
 
 
-from misc import soft_update, hard_update, enable_gradients, disable_gradients
-from agents import AttentionAgent
-from critics import AttentionCritic
+from utils.misc import soft_update, hard_update, enable_gradients, disable_gradients
+from utils.agents import AttentionAgent
+from utils.critics import AttentionCritic
 import torch.nn.utils as torch_utils
 
 from model1 import ActorCritic
