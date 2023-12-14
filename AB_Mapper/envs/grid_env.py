@@ -18,6 +18,7 @@ from envs.robot2 import RobotManager
 import time
 import copy
 import os
+import random
 
 
 class Agent(object):
@@ -280,21 +281,32 @@ class GridEnv:
         self.agent_goal = []
         self.agent_done = []
         self.agents = []
+        self.open_list = self.get_open_list()
         #self.pose2agent = {}
+        if self.agent_num>len(self.open_list)/2:
+            raise ValueError("%d are too many agents, please reduce the number of agents. Max number is %d"%(self.agent_num, len(self.open_list)/2))
+
         for i in range(self.agent_num):
-            goal = self.sample_free_space(current_grid)
-            while (len(self.agent_goal) > 0 and any(np.array_equal(goal, x) for x in self.agent_goal)):
-                goal = self.sample_free_space(current_grid)
+            # goal = self.sample_free_space(current_grid)
+            # while (len(self.agent_goal) > 0 and any(np.array_equal(goal, x) for x in self.agent_goal)):
+            #     goal = self.sample_free_space(current_grid)
+            goal = random.choice(self.open_list)
+            self.open_list.remove(goal)
+            goal = np.array(goal)
+
             self.agent_goal.append(goal)
-            #print("goal: ", goal)
-            y,x = goal
-            xmin = max(int(x-self.goal_sample_range), 0)
-            ymin = max(int(y-self.goal_sample_range), 0)
-            xmax = min(int(x+1+self.goal_sample_range), self.row)
-            ymax = min(int(y+1+self.goal_sample_range), self.col)
+
+            # y,x = goal
+            # xmin = max(int(x-self.goal_sample_range), 0)
+            # ymin = max(int(y-self.goal_sample_range), 0)
+            # xmax = min(int(x+1+self.goal_sample_range), self.row)
+            # ymax = min(int(y+1+self.goal_sample_range), self.col)
             
-            start_pose = self.sample_free_space(current_grid[xmin:xmax, ymin:ymax])+np.array((ymin, xmin))
-            
+            # start_pose = self.sample_free_space(current_grid[xmin:xmax, ymin:ymax])+np.array((ymin, xmin))
+            start_pose = random.choice(self.open_list)
+            self.open_list.remove(start_pose)
+            start_pose = np.array(start_pose)
+
             self.agent_pose.append(start_pose)
             self.set_grid(current_grid, start_pose, "agent")
             self.agent_map[start_pose[1],start_pose[0]] = i
@@ -619,6 +631,53 @@ class GridEnv:
                 self.set_grid(current_grid, agent_pose_i_now, "agent")
                 self.traj[i].append(agent_pose_i_now)
         return current_grid, robot_map, current_robot_map, agent_map, current_agent_map, current_robot_pose, current_agent_pose
+    
+    def get_open_list(self):    
+        open_list = [[3, 0],
+                    [4, 0],
+                    [5, 0],
+                    [6, 0],
+                    [7, 0],
+                    [8, 0],
+                    [9, 0],
+                    [10, 0],
+                    [11, 0],
+                    [12, 0], 
+                    [3, 14],
+                    [4, 14],
+                    [5, 14],
+                    [6, 14],
+                    [7, 14],
+                    [8, 14],
+                    [9, 14],
+                    [10, 14],
+                    [11, 14],
+                    [12, 14],
+                    [2, 4],
+                    [2, 6],
+                    [2, 8],
+                    [2, 10],
+                    [4, 4],
+                    [4, 6],
+                    [4, 8],
+                    [4, 10],
+                    [6, 4],
+                    [6, 6],
+                    [6, 8],
+                    [6, 10],
+                    [8, 4],
+                    [8, 6],
+                    [8, 8],
+                    [8, 10],
+                    [10, 4],
+                    [10, 6],
+                    [10, 8],
+                    [10, 10],
+                    [12, 4],
+                    [12, 6],
+                    [12, 8],
+                    [12, 10]]
+        return open_list
 
 
 
