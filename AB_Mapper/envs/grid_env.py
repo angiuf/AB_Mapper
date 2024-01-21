@@ -79,7 +79,10 @@ class Agent(object):
 
 class GridEnv:
     """Custom Environment that follows gym interface"""
-    def __init__(self, map, agent_num, window = None, obs_num = 0, goal_range = 20):
+    def __init__(self, dataset_dir, map_name, map, agent_num, window = None, obs_num = 0, goal_range = 20):
+        self.dataset_dir = dataset_dir
+        self.map_name = map_name
+        
         self.window = window
         self.map = map
         self.obstacles = map["map"]["obstacles"]
@@ -111,12 +114,16 @@ class GridEnv:
         
         self.renderer = Renderer(self.row, self.col, self.tilesize, self.traj_color)
 
+        self.id_counter = 0
+
+
         
 
         #self.reset()
         
     def reset(self):
         #simulation variable
+        self.id_counter += 1
         self.time += 1
         self.descrip = str(self.time)
         self.traj = []
@@ -131,11 +138,13 @@ class GridEnv:
         current_grid = self.background_grid.copy()
 
         #initialize agents
-        self.init_agents()
+        if self.id_counter < 200:
+            self.init_agents()
         for i in range(self.agent_num):
             # print("self.agent_pose[%d]:".format(i),self.agent_pose[i])
             self.traj.append([self.agent_pose[i]])
             self.set_grid(current_grid, self.agent_pose[i], "agent")
+        
 
         #initialize dynamic obstacles
         self.robot_manager = RobotManager(self.background_grid.copy(), self.idx_to_object, self.dynamic_obs_num, self.detect_agent)
@@ -281,17 +290,20 @@ class GridEnv:
         self.agent_goal = []
         self.agent_done = []
         self.agents = []
-        self.open_list = self.get_open_list()
+        # self.open_list = self.get_open_list()
+        # load start and goal position from file
+        agent_pos_dir = self.dataset_dir + self.map_name + "/input/start_and_goal/" + str(self.agent_num) + "_agents/"
+        case_filepath = agent_pos_dir + self.map_name + "_" + str(self.agent_num) + "_agents_ID_" + str(self.id_counter).zfill(5) + ".npy"
+        start_pos, goal_pos = np.load(case_filepath, allow_pickle=True)
+
+
         #self.pose2agent = {}
-        if self.agent_num>len(self.open_list)/2:
-            raise ValueError("%d are too many agents, please reduce the number of agents. Max number is %d"%(self.agent_num, len(self.open_list)/2))
 
         for i in range(self.agent_num):
             # goal = self.sample_free_space(current_grid)
             # while (len(self.agent_goal) > 0 and any(np.array_equal(goal, x) for x in self.agent_goal)):
             #     goal = self.sample_free_space(current_grid)
-            goal = random.choice(self.open_list)
-            self.open_list.remove(goal)
+            goal = goal_pos[i]
             goal = np.array(goal)
 
             self.agent_goal.append(goal)
@@ -303,8 +315,7 @@ class GridEnv:
             # ymax = min(int(y+1+self.goal_sample_range), self.col)
             
             # start_pose = self.sample_free_space(current_grid[xmin:xmax, ymin:ymax])+np.array((ymin, xmin))
-            start_pose = random.choice(self.open_list)
-            self.open_list.remove(start_pose)
+            start_pose = start_pos[i]
             start_pose = np.array(start_pose)
 
             self.agent_pose.append(start_pose)

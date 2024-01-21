@@ -45,7 +45,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--exp", help="experiment number",type=int, default=3)#
 
 
-parser.add_argument("--map-dir", help="static map dir", default="map")
+parser.add_argument("--dataset-dir", help="static map dir", default="/home/andrea/Thesis/baselines/Dataset/")
+parser.add_argument("--map-name", help="static map name", default="50_55_simple_warehouse")
+parser.add_argument("--map-dir", help="static map dir", default="/home/andrea/Thesis/baselines/Dataset/")
 parser.add_argument("--model-dir", help="model dir", default="weights")
 
 parser.add_argument("--load", help="load from the given path", default=False)
@@ -115,6 +117,7 @@ def get_key1(dct, value):
 RENDER=args.render
 MAX_STEP_RATIO = 20 # 4
 SUCCESS_RATE_THRES = 0.99
+MODEL_SAVE_NAME = "AB-MAPPER"
 
 model_dir, critic_model_dir = args.model_dir, args.critic_model_dir
 if not os.path.exists(model_dir):
@@ -130,6 +133,11 @@ date = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
 default_model_name = f"exp{args.exp}_{args.map}_lr_{args.lr}_seed{args.seed}_{date}"
 
 save_model_path = os.path.join(model_dir, default_model_name+".pth")
+
+# Create output directory
+output_dir = os.path.join(args.dataset_dir, args.map_name, "output", MODEL_SAVE_NAME)
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 if args.name:
     save_model_path = os.path.join(model_dir, args.name)
@@ -160,13 +168,14 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 txt_logger.info(f"Device: {device}\n")
 
 # environment initilization
-with open( os.path.join(args.map_dir,args.map+".yaml")) as map_file:
+map_dir = args.map_dir + args.map_name + "/input/map/"
+with open( os.path.join(map_dir,args.map_name + ".yaml")) as map_file:
     map = yaml.load(map_file, Loader=yaml.FullLoader)
 
 def count_actions(action_list):
     count = 0
-    for i in range(len(action_list)):
-        if action_list[i] != '.':
+    for action in action_list:
+        if action != '.':
             count += 1
     return count
 
@@ -179,18 +188,23 @@ def insert_action(x):
 file_name = ['./train_data/_reward/', './train_data/succ/','./train_data/_time/']
 
 def train():
-    num_agents_list = [4, 8, 12, 16, 20, 22]
+    num_agents_list = [64, 128, 256]
     for num_agents in num_agents_list:
         t1=time.time()
         time_list=[]
-        window = Window(default_model_name)
+        # window = Window(default_model_name)
         utils.seed(args.seed)
-        env = grid_env.GridEnv(map, agent_num=num_agents, window=window, obs_num=args.obs, goal_range = args.goal_range)
+        env = grid_env.GridEnv(args.dataset_dir, args.map_name, map, agent_num=num_agents, window=None, obs_num=args.obs, goal_range = args.goal_range)
         state = env.reset()
 
         txt_logger.info("Environments loaded\n")
         # if RENDER:
         #     env.render(show_traj=True)
+
+        # create agent output directory
+        agent_output_dir = os.path.join(output_dir, str(num_agents) + "_agent")
+        if not os.path.exists(agent_output_dir):
+            os.makedirs(agent_output_dir)
 
         agent_list = []
         for i in range(num_agents):
@@ -214,6 +228,7 @@ def train():
         entropy_weight = args.entropy_weight
         global_success_rate = []
         avg_step = []
+        count_max_step_list = []
 
         model = AttentionSAC.init_from_env(env,
                                         agents=num_agents,
@@ -240,7 +255,13 @@ def train():
                 # new add
                 agent_values = [[] for i in range(len(agent_list))]
                 episode_length = 0
-                # total_steps = 0
+                total_steps = 0
+                steps_for_max_step = np.zeros(num_agents)
+                
+                # Get agents position coordinates
+                solution = [[tuple(state["pose"][i]) + (0,)] for i in range(num_agents)]                    
+                    
+
                 for step_num in range(max_step):
 
                     input_img_list = []
@@ -257,9 +278,19 @@ def train():
                     attention_actions_list, action_list, img_list, actions_prob, log_probs, entropy_s = actor.forward(state_img=input_img_list, state_val=input_val_list)
 
                     # count the number of actions different from '.' (stay)
-                    # total_steps += count_actions(action_list)
+                    total_steps += count_actions(action_list)
+
+                    for i in range(num_agents):
+                        if action_list[i] != '.':
+                            steps_for_max_step[i] += 1
 
                     next_state, reward, done, _ = env.step(action_list)
+                    
+                    # Append coordinates to solution
+                    for i in range(num_agents):
+                        solution[i].append(tuple(next_state["pose"][i]) + (step_num+1,))
+
+                    # print("Agents pose: ", next_state["pose"])
 
                     critic_in = list(zip(img_list, attention_actions_list))
                     # print("attention_index",attention_index)
@@ -296,7 +327,8 @@ def train():
                     if success_rate>SUCCESS_RATE_THRES:
                         # if more than SUCCESS_RATE_THRES% agents reached the goal
                         break
-                
+
+                # print("Solution: ", solution)
                 
 
                 
@@ -314,6 +346,9 @@ def train():
                 next_input_val_list = []
 
                 attention_index_tar= []
+                
+                collision_rate = np.sum(state["collision"]) / (num_agents*(episode_length+1)) * 100
+
                 for i in range(num_agents):
                     agent = agent_list[i]
 
@@ -324,7 +359,7 @@ def train():
                     total_reward.append(sum_reward)
                     collsions = np.array(state["collision"])
                     collsions[collsions>=1]=1
-                    steps = state["steps"]
+                    # steps = state["steps"]
                     extra_time.append( (state["steps"][i]-max_step_list[i])/max_step_list[i] )
 
                     input_img, input_val,index = agent.preprocess(next_state,sub_num_agent=args.sub_num_agent, replan = True)
@@ -370,21 +405,39 @@ def train():
                 
 
                 average_reward = np.mean(total_reward)
-                collision_rate = np.mean(collsions)
+                # collision_rate = np.mean(collsions)
                 extra_step = np.mean(extra_time)
-                total_steps = np.sum(steps)
-                average_step = np.mean(steps)
+                # total_steps = np.sum(steps)
+                # average_step = np.mean(steps)
+                average_step = total_steps/num_agents
 
                 # print and save training info
-                header = ["exp", "type", "update","success_rate", "avg_reward", "collision","extra",  "max_reward"]
-                data = [args.exp, agent_type , epi, success_rate, average_reward,collision_rate, extra_step, sum_reward_max]
+                header = ["exp", "type", "update","success_rate", "avg_reward", "collision", "extra",  "max_reward"]
+                data = [args.exp, agent_type , epi, success_rate, average_reward, collision_rate, extra_step, sum_reward_max]
 
                 succ_rate.append(success_rate)
                 avg_reward.append(average_reward)
                 coll_rate.append(collision_rate)
                 avg_step.append(average_step)
+                count_max_step_list.append(np.max(steps_for_max_step))
                 tot_step.append(total_steps)
                 ep_len.append(episode_length)
+
+                out = dict()
+                out["finished"] = True if success_rate>SUCCESS_RATE_THRES else False
+                if out["finished"]:
+                    out["total_step"] = total_steps
+                    out["avg_step"] = average_step
+                    out["max_step"] = np.max(steps_for_max_step)
+                    out["episode_length"] = episode_length
+                out["collision_rate"] = collision_rate
+
+                save_dict = {"metrics": out, "solution": solution}
+
+                # save solution to file
+                solution_file_name = "solution_" + MODEL_SAVE_NAME + "_" + args.map_name + "_" + str(num_agents) + "_agents_ID_" + str(epi).zfill(5) + ".npy"
+                solution_file = os.path.join(agent_output_dir, solution_file_name)
+                np.save(solution_file, save_dict)
 
 
                 txt_logger.info(
@@ -401,18 +454,19 @@ def train():
                 if epi % 100 == 0:
                     torch.cuda.empty_cache()
 
-        window.close()
+        # window.close()
         t2=time.time()
         time_list.append(t2-t1)
         # torch.save(model.critic.state_dict(),)
-        glob_succ_rate = np.sum(global_success_rate)/len(global_success_rate)
+        glob_succ_rate = np.sum(global_success_rate)/len(global_success_rate) * 100
         glob_coll_rate = np.mean(coll_rate)
         glob_extra_time = np.mean(extra_time)
         glob_avg_step = np.mean(avg_step)
         glob_tot_step = np.mean(tot_step)
         glob_ep_len = np.mean(ep_len)
-        header = ["n_agents", "success_rate", "collision_rate", "extra_time", "avg_step", 'total_step', 'episode_length']
-        data = [num_agents, glob_succ_rate, glob_coll_rate, glob_extra_time, glob_avg_step, glob_tot_step, glob_ep_len]
+        glob_max_step = np.mean(count_max_step_list)
+        header = ["n_agents", "success_rate", "collision_rate", "extra_time", "avg_step", 'total_step', 'max_step', 'episode_length', "total_step_std", "avg_step_std", "max_step_std", "episode_length_std", "total_step_min", "avg_step_min", "max_step_min", "episode_length_min", "total_step_max", "avg_step_max", "max_step_max", "episode_length_max"]
+        data = [num_agents, glob_succ_rate, glob_coll_rate, glob_extra_time, glob_avg_step, glob_tot_step, glob_max_step, glob_ep_len, np.std(tot_step), np.std(avg_step), np.std(count_max_step_list), np.std(ep_len), np.min(tot_step), np.min(avg_step), np.min(count_max_step_list), np.min(ep_len), np.max(tot_step), np.max(avg_step), np.max(count_max_step_list), np.max(ep_len)]
         if num_agents == 4:
             csv_logger.writerow(header)
         csv_logger.writerow(data)
