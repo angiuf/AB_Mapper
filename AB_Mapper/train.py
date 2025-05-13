@@ -45,9 +45,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--exp", help="experiment number",type=int, default=3)#
 
 
-parser.add_argument("--dataset-dir", help="static map dir", default="/home/andrea/Thesis/baselines/Dataset/")
+parser.add_argument("--dataset-dir", help="static map dir", default="/home/andrea/CODE/master_thesis_MAPF_DRL/baselines/Dataset/")
 parser.add_argument("--map-name", help="static map name", default="50_55_simple_warehouse")
-parser.add_argument("--map-dir", help="static map dir", default="/home/andrea/Thesis/baselines/Dataset/")
+parser.add_argument("--map-dir", help="static map dir", default="/home/andrea/CODE/master_thesis_MAPF_DRL/baselines/Dataset/")
 parser.add_argument("--model-dir", help="model dir", default="weights")
 
 parser.add_argument("--load", help="load from the given path", default=False)
@@ -435,7 +435,7 @@ def train():
                 save_dict = {"metrics": out, "solution": solution}
 
                 # save solution to file
-                solution_file_name = "solution_" + MODEL_SAVE_NAME + "_" + args.map_name + "_" + str(num_agents) + "_agents_ID_" + str(epi).zfill(5) + ".npy"
+                solution_file_name = "solution_" + MODEL_SAVE_NAME + "_" + args.map_name + "_" + str(num_agents) + "_agents_ID_" + str(epi).zfill(3) + ".npy"
                 solution_file = os.path.join(agent_output_dir, solution_file_name)
                 np.save(solution_file, save_dict)
 

@@ -293,8 +293,8 @@ class GridEnv:
         # self.open_list = self.get_open_list()
         # load start and goal position from file
         agent_pos_dir = self.dataset_dir + self.map_name + "/input/start_and_goal/" + str(self.agent_num) + "_agents/"
-        case_filepath = agent_pos_dir + self.map_name + "_" + str(self.agent_num) + "_agents_ID_" + str(self.id_counter).zfill(5) + ".npy"
-        start_pos, goal_pos = np.load(case_filepath, allow_pickle=True)
+        case_filepath = agent_pos_dir + self.map_name + "_" + str(self.agent_num) + "_agents_ID_" + str(self.id_counter).zfill(3) + ".npy"
+        pos = np.load(case_filepath, allow_pickle=True)
 
 
         #self.pose2agent = {}
@@ -303,7 +303,7 @@ class GridEnv:
             # goal = self.sample_free_space(current_grid)
             # while (len(self.agent_goal) > 0 and any(np.array_equal(goal, x) for x in self.agent_goal)):
             #     goal = self.sample_free_space(current_grid)
-            goal = goal_pos[i]
+            goal = pos[i][1]
             goal = np.array(goal)
 
             self.agent_goal.append(goal)
@@ -315,7 +315,7 @@ class GridEnv:
             # ymax = min(int(y+1+self.goal_sample_range), self.col)
             
             # start_pose = self.sample_free_space(current_grid[xmin:xmax, ymin:ymax])+np.array((ymin, xmin))
-            start_pose = start_pos[i]
+            start_pose = pos[i][0]
             start_pose = np.array(start_pose)
 
             self.agent_pose.append(start_pose)
