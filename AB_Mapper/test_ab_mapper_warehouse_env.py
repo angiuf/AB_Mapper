@@ -173,7 +173,8 @@ def run_simulations(dataset_dir, map_name, num_agents, size, iter_idx, actor, de
         agent_list.append(agent)
     
     # Get max step from agents
-    max_step, max_step_list = utils.get_max_step(agent_list)
+    # max_step, max_step_list = utils.get_max_step(agent_list)
+    max_step = 256
     
     success_rate = 0
     first_done = np.zeros(num_agents)
@@ -240,30 +241,30 @@ def run_simulations(dataset_dir, map_name, num_agents, size, iter_idx, actor, de
         
         # Prepare results
         results['finished'] = success_rate > SUCCESS_RATE_THRES
-        results['time'] = elapsed_time
-        results['episode_length'] = episode_length
-        results['total_steps'] = total_steps
-        results['avg_steps'] = total_steps / num_agents if num_agents > 0 else 0
-        results['max_steps'] = np.max(steps_for_max_step) if steps_for_max_step.size > 0 else 0
-        results['min_steps'] = np.min(steps_for_max_step) if steps_for_max_step.size > 0 else 0
+        if results['finished']:
+            results['time'] = elapsed_time
+            results['episode_length'] = episode_length
+            results['total_steps'] = total_steps
+            results['avg_steps'] = total_steps / num_agents if num_agents > 0 else 0
+            results['max_steps'] = np.max(steps_for_max_step) if steps_for_max_step.size > 0 else 0
+            results['min_steps'] = np.min(steps_for_max_step) if steps_for_max_step.size > 0 else 0
         
-        # Calculate costs similar to PRIMAL's method
-        agent_costs = np.zeros(num_agents)
-        for i in range(num_agents):
-            if first_done[i]:
-                # Agent reached the goal
-                agent_costs[i] = state["steps"][i] if "steps" in state else episode_length
-            else:
-                # Agent didn't reach the goal
-                agent_costs[i] = episode_length
-                
-        results['total_costs'] = np.sum(agent_costs)
-        results['avg_costs'] = np.mean(agent_costs)
-        results['max_costs'] = np.max(agent_costs)
-        results['min_costs'] = np.min(agent_costs)
+            # Calculate costs similar to PRIMAL's method
+            agent_costs = np.zeros(num_agents)
+            for i in range(num_agents):
+                if first_done[i]:
+                    # Agent reached the goal
+                    agent_costs[i] = state["steps"][i] if "steps" in state else episode_length
+                else:
+                    # Agent didn't reach the goal
+                    agent_costs[i] = episode_length
+                    
+            results['total_costs'] = np.sum(agent_costs)
+            results['avg_costs'] = np.mean(agent_costs)
+            results['max_costs'] = np.max(agent_costs)
+            results['min_costs'] = np.min(agent_costs)
         
-        # Calculate collisions
-        if success_rate > 0 and episode_length > 0 and num_agents > 0:
+            # Calculate collisions
             agent_coll, obs_coll = count_collisions(solution, env.background_grid)
             results['crashed'] = (agent_coll + obs_coll) > 0
             results['agent_collisions'] = agent_coll
@@ -273,13 +274,19 @@ def run_simulations(dataset_dir, map_name, num_agents, size, iter_idx, actor, de
             results['obstacle_coll_rate'] = obs_coll / (episode_length * num_agents)
             results['total_coll_rate'] = (agent_coll + obs_coll) / (episode_length * num_agents)
         else:
-            results['crashed'] = False
-            results['agent_collisions'] = 0
-            results['obstacle_collisions'] = 0
-            results['collisions'] = 0
-            results['agent_coll_rate'] = 0
-            results['obstacle_coll_rate'] = 0
-            results['total_coll_rate'] = 0
+            results['time'] = None
+            results['episode_length'] = None
+            results['total_steps'] = None
+            results['avg_steps'] = None
+            results['max_steps'] = None
+            results['min_steps'] = None
+            results['crashed'] = None
+            results['agent_collisions'] = None
+            results['obstacle_collisions'] = None
+            results['collisions'] = None
+            results['agent_coll_rate'] = None
+            results['obstacle_coll_rate'] = None
+            results['total_coll_rate'] = None
     
     except Exception as e:
         print(f"Error during simulation: {str(e)}")
@@ -335,7 +342,7 @@ if __name__ == "__main__":
         {
             "map_name": "15_15_simple_warehouse",
             "size": 15,
-            "n_tests": 1,
+            "n_tests": 200,
             "list_num_agents": [4, 8, 12, 16, 20, 22]
         },
         {
