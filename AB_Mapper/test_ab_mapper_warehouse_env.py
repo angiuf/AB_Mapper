@@ -17,8 +17,8 @@ import json
 from model1 import Actor
 import csv
 
-actions = ['N','S','E','W','NW','WS','SE','EN','.']
-idx_to_act = {0:"N",1:"S",2:"E",3:"W", 4:"NW",5:"WS",6:"SE",7:"EN",8:"."}
+actions = ['N','S','E','W','.']
+idx_to_act = {0:"N",1:"S",2:"E",3:"W", 5:"."}
 act_to_idx = dict(zip(idx_to_act.values(),idx_to_act.keys()))
 
 parser = argparse.ArgumentParser()
